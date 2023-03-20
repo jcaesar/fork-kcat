@@ -1117,6 +1117,7 @@ static void mock_run (void) {
         const char *bootstraps;
         char errstr[512];
         char buf[64];
+        int stdin_isatty;
 
         if (!(rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf.rk_conf,
                                 errstr, sizeof(errstr))))
@@ -1131,13 +1132,24 @@ static void mock_run (void) {
 
         KC_INFO(1, "Mock cluster started with bootstrap.servers=%s\n",
                 bootstraps);
-        KC_INFO(1, "Press Ctrl-C+Enter or Ctrl-D to terminate.\n");
+        stdin_isatty = _COMPAT(isatty)(STDIN_FILENO);
+        if (stdin_isatty)
+                KC_INFO(1, "Press Ctrl-C+Enter or Ctrl-D to terminate.\n");
 
         printf("BROKERS=%s\n", bootstraps);
 
-        while (conf.run && fgets(buf, sizeof(buf), stdin)) {
-                /* nop */
-        }
+        if (stdin_isatty)
+                while (conf.run && fgets(buf, sizeof(buf), stdin)) {
+                        /* nop */
+                }
+        else
+                while (conf.run)
+#ifndef _MSC_VER
+                        _COMPAT(pause)();
+#else
+                        // In theory, handled signals interrupt sleep
+                        _COMPAT(sleep)(5);
+#endif
 
         KC_INFO(1, "Terminating mock cluster\n");
 
